@@ -14,12 +14,15 @@ class MainActivity : AppCompatActivity() {
     private val pickMedia =
         registerForActivityResult(PickVisualMedia()) { uri ->
             Log.i("MOJO", "Got uri: $uri")
+
+            uri?.let {
+                glSurfaceView = MojoSurfaceView(this, it)
+                setContentView(glSurfaceView)
+            }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        glSurfaceView = MojoSurfaceView(this)
-        setContentView(glSurfaceView)
 
         pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.VideoOnly))
     }
