@@ -7,7 +7,7 @@ import android.graphics.SurfaceTexture.OnFrameAvailableListener
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaPlayer
-import android.opengl.GLES20
+import android.opengl.GLES32
 import android.opengl.GLSurfaceView
 import android.opengl.Matrix
 import android.util.Log
@@ -92,27 +92,27 @@ class MojoRenderer(
     }
 
     private fun createProgram(vertexSource: String, fragmentSource: String): Int {
-        val vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertexSource)
+        val vertexShader = loadShader(GLES32.GL_VERTEX_SHADER, vertexSource)
         if (vertexShader == 0) return 0
 
-        val pixelShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentSource)
+        val pixelShader = loadShader(GLES32.GL_FRAGMENT_SHADER, fragmentSource)
         if (pixelShader == 0) return 0
 
-        var program = GLES20.glCreateProgram()
+        var program = GLES32.glCreateProgram()
 
         if (program != 0) {
-            GLES20.glAttachShader(program, vertexShader)
+            GLES32.glAttachShader(program, vertexShader)
             checkGlError("vertexShader")
-            GLES20.glAttachShader(program, pixelShader)
+            GLES32.glAttachShader(program, pixelShader)
             checkGlError("pixelShader")
 
-            GLES20.glLinkProgram(program)
+            GLES32.glLinkProgram(program)
             val linkStatus = IntArray(1)
-            GLES20.glGetProgramiv(program, GLES20.GL_LINK_STATUS, linkStatus, 0)
+            GLES32.glGetProgramiv(program, GLES32.GL_LINK_STATUS, linkStatus, 0)
 
-            if (linkStatus[0] != GLES20.GL_TRUE) {
-                Log.e(TAG, "Failed to link program: ${GLES20.glGetProgramInfoLog(program)}")
-                GLES20.glDeleteProgram(program)
+            if (linkStatus[0] != GLES32.GL_TRUE) {
+                Log.e(TAG, "Failed to link program: ${GLES32.glGetProgramInfoLog(program)}")
+                GLES32.glDeleteProgram(program)
                 program = 0
             }
         }
@@ -121,20 +121,20 @@ class MojoRenderer(
     }
 
     private fun loadShader(shaderType: Int, source: String): Int {
-        var shader = GLES20.glCreateShader(shaderType)
+        var shader = GLES32.glCreateShader(shaderType)
         if (shader != 0) {
-            GLES20.glShaderSource(shader, source)
-            GLES20.glCompileShader(shader)
+            GLES32.glShaderSource(shader, source)
+            GLES32.glCompileShader(shader)
 
             val compiled = IntArray(1)
-            GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, compiled, 0)
+            GLES32.glGetShaderiv(shader, GLES32.GL_COMPILE_STATUS, compiled, 0)
 
             if (compiled[0] == 0) {
                 Log.e(
                     TAG,
-                    "Failed to compile shader: $shaderType, ${GLES20.glGetShaderInfoLog(shader)}"
+                    "Failed to compile shader: $shaderType, ${GLES32.glGetShaderInfoLog(shader)}"
                 )
-                GLES20.glDeleteShader(shader)
+                GLES32.glDeleteShader(shader)
                 shader = 0
             }
         }
@@ -159,18 +159,18 @@ class MojoRenderer(
         updateAttributes()
 
         val textures = IntArray(1)
-        GLES20.glGenTextures(1, textures, 0)
+        GLES32.glGenTextures(1, textures, 0)
         textureId = textures[0]
 
-        GLES20.glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId)
+        GLES32.glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId)
 
-        GLES20.glTexParameterf(
-            GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER,
-            GLES20.GL_NEAREST.toFloat()
+        GLES32.glTexParameterf(
+            GL_TEXTURE_EXTERNAL_OES, GLES32.GL_TEXTURE_MIN_FILTER,
+            GLES32.GL_NEAREST.toFloat()
         )
-        GLES20.glTexParameterf(
-            GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER,
-            GLES20.GL_LINEAR.toFloat()
+        GLES32.glTexParameterf(
+            GL_TEXTURE_EXTERNAL_OES, GLES32.GL_TEXTURE_MAG_FILTER,
+            GLES32.GL_LINEAR.toFloat()
         )
 
         surfaceTexture = SurfaceTexture(textureId)
@@ -215,25 +215,25 @@ class MojoRenderer(
     }
 
     private fun updateAttributes() {
-        attrPositionHandle = GLES20.glGetAttribLocation(program, "aPosition")
+        attrPositionHandle = GLES32.glGetAttribLocation(program, "aPosition")
 
         if (attrPositionHandle == -1) {
             throw RuntimeException("Couldn't get attrib location for aPosition")
         }
 
-        textureHandle = GLES20.glGetAttribLocation(program, "aTextureCoord")
+        textureHandle = GLES32.glGetAttribLocation(program, "aTextureCoord")
 
         if (textureHandle == -1) {
             throw RuntimeException("Couldn't get attrib location for textureCoord")
         }
 
-        mvpMatrixHandle = GLES20.glGetUniformLocation(program, "uMVPMatrix")
+        mvpMatrixHandle = GLES32.glGetUniformLocation(program, "uMVPMatrix")
 
         if (mvpMatrixHandle == -1) {
             throw RuntimeException("Couldn't get attrib location for uMVPMatrix")
         }
 
-        stMatrixHandle = GLES20.glGetUniformLocation(program, "uSTMatrix")
+        stMatrixHandle = GLES32.glGetUniformLocation(program, "uSTMatrix")
 
         if (stMatrixHandle == -1) {
             throw RuntimeException("Couldn't get attrib location for uSTMatrix")
@@ -241,7 +241,7 @@ class MojoRenderer(
     }
 
     override fun onSurfaceChanged(gl: GL10, width: Int, height: Int) {
-        GLES20.glViewport(0, 0, width, height)
+        GLES32.glViewport(0, 0, width, height)
         Matrix.frustumM(projectionMatrix, 0, -1f, 1f, -1f, 1f, 1f, 10f)
         Log.i(TAG, "SurfaceChanged w: $width, h:$height")
     }
@@ -250,50 +250,50 @@ class MojoRenderer(
         surfaceTexture.updateTexImage()
         surfaceTexture.getTransformMatrix(mSTMatrix)
 
-        GLES20.glClearColor(255f, 255f, 255f, 1f)
-        GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT or GLES20.GL_COLOR_BUFFER_BIT)
+        GLES32.glClearColor(255f, 255f, 255f, 1f)
+        GLES32.glClear(GLES32.GL_DEPTH_BUFFER_BIT or GLES32.GL_COLOR_BUFFER_BIT)
 
-        GLES20.glUseProgram(program)
+        GLES32.glUseProgram(program)
         checkGlError("useProgram")
 
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
-        GLES20.glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId)
+        GLES32.glActiveTexture(GLES32.GL_TEXTURE0)
+        GLES32.glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId)
 
         triangleVertices?.position(TRIANGLE_VERTICES_DATA_POS_OFFSET)
-        GLES20.glVertexAttribPointer(
+        GLES32.glVertexAttribPointer(
             attrPositionHandle,
             3,
-            GLES20.GL_FLOAT,
+            GLES32.GL_FLOAT,
             false,
             TRIANGLE_VERTICES_DATA_STRIDE_BYTES,
             triangleVertices
         )
-        GLES20.glEnableVertexAttribArray(attrPositionHandle)
+        GLES32.glEnableVertexAttribArray(attrPositionHandle)
 
         textureVertices?.position(TRIANGLE_VERTICES_DATA_UV_OFFSET)
-        GLES20.glVertexAttribPointer(
+        GLES32.glVertexAttribPointer(
             textureHandle,
             2,
-            GLES20.GL_FLOAT,
+            GLES32.GL_FLOAT,
             false,
             TEXTURE_VERTICES_DATA_STRIDE_BYTES,
             textureVertices
         )
-        GLES20.glEnableVertexAttribArray(textureHandle)
+        GLES32.glEnableVertexAttribArray(textureHandle)
 
         Matrix.setIdentityM(mMVPMatrix, 0)
 
-        GLES20.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mMVPMatrix, 0)
-        GLES20.glUniformMatrix4fv(stMatrixHandle, 1, false, mSTMatrix, 0)
+        GLES32.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mMVPMatrix, 0)
+        GLES32.glUniformMatrix4fv(stMatrixHandle, 1, false, mSTMatrix, 0)
 
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+        GLES32.glDrawArrays(GLES32.GL_TRIANGLE_STRIP, 0, 4)
 
-        GLES20.glFinish()
+        GLES32.glFinish()
     }
 
     private fun checkGlError(op: String) {
         var error: Int
-        while (GLES20.glGetError().also { error = it } != GLES20.GL_NO_ERROR) {
+        while (GLES32.glGetError().also { error = it } != GLES32.GL_NO_ERROR) {
             Log.e(TAG, "$op: glError $error")
             throw java.lang.RuntimeException("$op: glError $error")
         }
