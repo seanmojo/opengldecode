@@ -19,7 +19,7 @@ class MojoSurfaceView(context: Context, mediaUri: Uri) : GLSurfaceView(context),
         setEGLConfigChooser(8, 8, 8, 8, 16, 0)
 
         context.contentResolver.openFileDescriptor(mediaUri, "r")?.fileDescriptor?.let {
-            renderer = MojoRenderer(it, this@MojoSurfaceView)
+            renderer = MojoRenderer(context, it, this@MojoSurfaceView)
             setRenderer(renderer)
             renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
         }

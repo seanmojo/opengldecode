@@ -1,5 +1,6 @@
 package com.example.opengldecode
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.SurfaceTexture
 import android.graphics.SurfaceTexture.OnFrameAvailableListener
@@ -19,6 +20,7 @@ import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
 class MojoRenderer(
+    private val context: Context,
     private val mediaFd: FileDescriptor,
     private val onFrameAvailableListener: OnFrameAvailableListener
 ) : GLSurfaceView.Renderer {
@@ -43,25 +45,8 @@ class MojoRenderer(
     var triangleVertices: FloatBuffer? = null
     var textureVertices: FloatBuffer? = null
 
-    private val vertexShader = """uniform mat4 uMVPMatrix;
-uniform mat4 uSTMatrix;
-attribute vec4 aPosition;
-attribute vec4 aTextureCoord;
-varying vec2 vTextureCoord;
-void main() {
-  gl_Position = uMVPMatrix * aPosition;
-  vTextureCoord = (uSTMatrix * aTextureCoord).xy;
-}
-"""
-
-    private val fragmentShader = """#extension GL_OES_EGL_image_external : require
-precision mediump float;
-varying vec2 vTextureCoord;
-uniform samplerExternalOES sTexture;
-void main() {
-  gl_FragColor = texture2D(sTexture, vTextureCoord);
-}
-"""
+    private var vertexShader = ""
+    private var fragmentShader = ""
 
     val mMVPMatrix = FloatArray(16)
     val mSTMatrix = FloatArray(16)
@@ -158,6 +143,13 @@ void main() {
     }
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
+        vertexShader =
+            context.resources.openRawResource(R.raw.boring_vertex_shader).bufferedReader()
+                .readText()
+        fragmentShader =
+            context.resources.openRawResource(R.raw.boring_fragment_shader).bufferedReader()
+                .readText()
+
         program = createProgram(vertexShader, fragmentShader)
 
         if (program == 0) {
