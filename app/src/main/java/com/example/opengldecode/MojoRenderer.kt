@@ -1,6 +1,5 @@
 package com.example.opengldecode
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.SurfaceTexture
 import android.graphics.SurfaceTexture.OnFrameAvailableListener
@@ -19,7 +18,10 @@ import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
-class MojoRenderer(val context: Context, private val mediaFd: FileDescriptor) : GLSurfaceView.Renderer, OnFrameAvailableListener {
+class MojoRenderer(
+    private val mediaFd: FileDescriptor,
+    private val onFrameAvailableListener: OnFrameAvailableListener
+) : GLSurfaceView.Renderer {
 
     val TAG = "MOJO"
 
@@ -73,8 +75,6 @@ void main() {
     var textureHandle = 0
 
     lateinit var surfaceTexture: SurfaceTexture
-    var updateSurface = false
-
     var mediaPlayer: MediaPlayer? = null
 
     var width = 0
@@ -182,7 +182,8 @@ void main() {
         )
 
         surfaceTexture = SurfaceTexture(textureId)
-        surfaceTexture.setOnFrameAvailableListener(this)
+//        surfaceTexture.setOnFrameAvailableListener(this)
+        surfaceTexture.setOnFrameAvailableListener(onFrameAvailableListener)
 
         val surface = Surface(surfaceTexture)
         mediaPlayer = MediaPlayer()
@@ -210,15 +211,12 @@ void main() {
                 height = temp
             }
 
-            imageByteBuffer = ByteBuffer.allocateDirect(height*width*4).order(ByteOrder.nativeOrder())
+            imageByteBuffer =
+                ByteBuffer.allocateDirect(height * width * 4).order(ByteOrder.nativeOrder())
             bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to config mp: $e")
-        }
-
-        synchronized(this) {
-            updateSurface = false
         }
 
         mediaPlayer?.start()
@@ -252,22 +250,13 @@ void main() {
 
     override fun onSurfaceChanged(gl: GL10, width: Int, height: Int) {
         GLES20.glViewport(0, 0, width, height)
-        this.width = width
-        this.height = height
         Matrix.frustumM(projectionMatrix, 0, -1f, 1f, -1f, 1f, 1f, 10f)
         Log.i(TAG, "SurfaceChanged w: $width, h:$height")
     }
 
     override fun onDrawFrame(gl: GL10?) {
-        synchronized(this) {
-            if (updateSurface) {
-                surfaceTexture.updateTexImage()
-                surfaceTexture.getTransformMatrix(mSTMatrix)
-                updateSurface = false
-            } else {
-                return
-            }
-        }
+        surfaceTexture.updateTexImage()
+        surfaceTexture.getTransformMatrix(mSTMatrix)
 
         GLES20.glClearColor(255f, 255f, 255f, 1f)
         GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT or GLES20.GL_COLOR_BUFFER_BIT)
@@ -308,10 +297,6 @@ void main() {
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
         GLES20.glFinish()
-    }
-
-    override fun onFrameAvailable(surfaceTexture: SurfaceTexture?) {
-        updateSurface = true
     }
 
     private fun checkGlError(op: String) {
