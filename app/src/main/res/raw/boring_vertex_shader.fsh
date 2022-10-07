@@ -4,8 +4,8 @@ uniform mat4 uMVPMatrix;
 uniform mat4 uSTMatrix;
 in vec4 aPosition;
 in vec4 aTextureCoord;
-out vec2 vTextureCoord;
+out vec2 v_tex_coord;
 void main() {
     gl_Position = uMVPMatrix * aPosition;
-    vTextureCoord = (uSTMatrix * aTextureCoord).xy;
+    v_tex_coord = (uSTMatrix * aTextureCoord).xy;
 }

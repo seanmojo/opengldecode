@@ -6,8 +6,8 @@
 precision highp float;
 
 out vec4 gl_FragColor;
-in vec2 vTextureCoord;
+in vec2 v_tex_coord;
 uniform samplerExternalOES sTexture;
 void main() {
-    gl_FragColor = texture2D(sTexture, vTextureCoord);
+    gl_FragColor = texture2D(sTexture, v_tex_coord);
 }
