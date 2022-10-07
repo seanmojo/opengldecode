@@ -174,7 +174,6 @@ class MojoRenderer(
         )
 
         surfaceTexture = SurfaceTexture(textureId)
-//        surfaceTexture.setOnFrameAvailableListener(this)
         surfaceTexture.setOnFrameAvailableListener(onFrameAvailableListener)
 
         val surface = Surface(surfaceTexture)
@@ -216,28 +215,16 @@ class MojoRenderer(
 
     private fun updateAttributes() {
         attrPositionHandle = GLES32.glGetAttribLocation(program, "aPosition")
-
-        if (attrPositionHandle == -1) {
-            throw RuntimeException("Couldn't get attrib location for aPosition")
-        }
+        checkGlError("aPosition")
 
         textureHandle = GLES32.glGetAttribLocation(program, "aTextureCoord")
-
-        if (textureHandle == -1) {
-            throw RuntimeException("Couldn't get attrib location for textureCoord")
-        }
+        checkGlError("aTextureCoord")
 
         mvpMatrixHandle = GLES32.glGetUniformLocation(program, "uMVPMatrix")
-
-        if (mvpMatrixHandle == -1) {
-            throw RuntimeException("Couldn't get attrib location for uMVPMatrix")
-        }
+        checkGlError("uMVPMatrix")
 
         stMatrixHandle = GLES32.glGetUniformLocation(program, "uSTMatrix")
-
-        if (stMatrixHandle == -1) {
-            throw RuntimeException("Couldn't get attrib location for uSTMatrix")
-        }
+        checkGlError("uSTMatrix")
     }
 
     override fun onSurfaceChanged(gl: GL10, width: Int, height: Int) {
