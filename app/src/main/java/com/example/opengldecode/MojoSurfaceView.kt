@@ -7,7 +7,6 @@ import android.graphics.SurfaceTexture.OnFrameAvailableListener
 import android.media.MediaPlayer
 import android.net.Uri
 import android.opengl.GLSurfaceView
-import android.util.Log
 
 class MojoSurfaceView(context: Context, mediaUri: Uri, onMediaReady: (mp: MediaPlayer) -> Unit) :
     GLSurfaceView(context), OnFrameAvailableListener {
@@ -32,8 +31,12 @@ class MojoSurfaceView(context: Context, mediaUri: Uri, onMediaReady: (mp: MediaP
         renderer?.onDetachedFromWindow()
     }
 
-    override fun onFrameAvailable(surfaceTexture: SurfaceTexture?) {
-        requestRender()
+    override fun onFrameAvailable(surfaceTexture: SurfaceTexture?) = requestRender()
+
+    fun toggleApplyShader() {
+        renderer?.let {
+            it.applyFragShader = !it.applyFragShader
+        }
     }
 
 }

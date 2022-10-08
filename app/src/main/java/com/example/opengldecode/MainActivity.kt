@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var seekBar: SeekBar
     lateinit var mediaPlayer: MediaPlayer
     lateinit var captureButton: Button
+    lateinit var toggleShaderButton: Button
 
     private val pickMedia =
         registerForActivityResult(PickVisualMedia()) { uri ->
@@ -46,8 +47,13 @@ class MainActivity : AppCompatActivity() {
         content = findViewById(R.id.content)
         seekBar = findViewById(R.id.seekBar)
         captureButton = findViewById(R.id.captureButton)
+        toggleShaderButton = findViewById(R.id.toggleShaderButton)
 
         pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.VideoOnly))
+
+        toggleShaderButton.setOnClickListener {
+            mojoSurfaceView.toggleApplyShader()
+        }
 
         captureButton.setOnClickListener {
             Log.i("MOJO", "Tapped capture")

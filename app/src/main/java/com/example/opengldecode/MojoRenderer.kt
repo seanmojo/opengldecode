@@ -1,7 +1,6 @@
 package com.example.opengldecode
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.SurfaceTexture
 import android.graphics.SurfaceTexture.OnFrameAvailableListener
 import android.media.MediaExtractor
@@ -13,7 +12,6 @@ import android.opengl.GLSurfaceView
 import android.opengl.Matrix
 import android.util.Log
 import android.view.Surface
-import org.json.JSONObject
 import java.io.FileDescriptor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -50,12 +48,14 @@ class MojoRenderer(
 
     private var vertexShader = ""
     private var fragmentShader = ""
+    private var effectShader = ""
 
     val mMVPMatrix = FloatArray(16)
     val mSTMatrix = FloatArray(16)
     val projectionMatrix = FloatArray(16)
 
     var program = 0
+    var effectsProgram = 0
     var textureId = 0
     var mvpMatrixHandle = 0
     var stMatrixHandle = 0
@@ -69,6 +69,12 @@ class MojoRenderer(
     var height = 0
 
     private val GL_TEXTURE_EXTERNAL_OES = 0x8D65
+
+    var applyFragShader = false
+        set(value) {
+            field = value
+            recreate()
+        }
 
     init {
         triangleVertices =
@@ -152,17 +158,30 @@ class MojoRenderer(
         return shader
     }
 
+    private fun recreate() {
+        program = createProgram(vertexShader, fragmentShader)
+        //effectsProgram = createProgram(vertexShader, effectShader)
+    }
+
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         vertexShader =
             context.resources.openRawResource(R.raw.boring_vertex_shader).bufferedReader()
                 .readText()
         fragmentShader =
-            context.resources.openRawResource(R.raw.glitch).bufferedReader()
+            context.resources.openRawResource(R.raw.boring_fragment_shader).bufferedReader()
+                .readText()
+        effectShader =
+            context.resources.openRawResource(R.raw.negative).bufferedReader()
                 .readText()
 
         program = createProgram(vertexShader, fragmentShader)
+        effectsProgram = createProgram(vertexShader, effectShader)
 
         if (program == 0) {
+            return
+        }
+
+        if (effectsProgram == 0) {
             return
         }
 
@@ -235,6 +254,21 @@ class MojoRenderer(
 
         stMatrixHandle = GLES32.glGetUniformLocation(program, "uSTMatrix")
         checkGlError("uSTMatrix")
+
+
+
+        //EFFECTS
+        attrPositionHandle = GLES32.glGetAttribLocation(effectsProgram, "aPosition")
+        checkGlError("aPosition")
+
+        textureHandle = GLES32.glGetAttribLocation(effectsProgram, "aTextureCoord")
+        checkGlError("aTextureCoord")
+
+        mvpMatrixHandle = GLES32.glGetUniformLocation(effectsProgram, "uMVPMatrix")
+        checkGlError("uMVPMatrix")
+
+        stMatrixHandle = GLES32.glGetUniformLocation(effectsProgram, "uSTMatrix")
+        checkGlError("uSTMatrix")
     }
 
     override fun onSurfaceChanged(gl: GL10, width: Int, height: Int) {
@@ -244,13 +278,19 @@ class MojoRenderer(
     }
 
     override fun onDrawFrame(gl: GL10?) {
+        if(applyFragShader) {
+            effectsProgram = createProgram(vertexShader, effectShader)
+        } else {
+            program = createProgram(vertexShader, fragmentShader)
+        }
+
         surfaceTexture.updateTexImage()
         surfaceTexture.getTransformMatrix(mSTMatrix)
 
         GLES32.glClearColor(255f, 255f, 255f, 1f)
         GLES32.glClear(GLES32.GL_DEPTH_BUFFER_BIT or GLES32.GL_COLOR_BUFFER_BIT)
 
-        GLES32.glUseProgram(program)
+        GLES32.glUseProgram(if(applyFragShader) effectsProgram else program)
         checkGlError("useProgram")
 
         GLES32.glActiveTexture(GLES32.GL_TEXTURE0)
