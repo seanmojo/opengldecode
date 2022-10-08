@@ -68,9 +68,6 @@ class MojoRenderer(
 
     private val GL_TEXTURE_EXTERNAL_OES = 0x8D65
 
-    private var imageByteBuffer: ByteBuffer? = null
-    private var bitmap: Bitmap? = null
-
     init {
         triangleVertices =
             ByteBuffer.allocateDirect(mTriangleVerticesData.size * FLOAT_SIZE_BYTES).order(
@@ -148,7 +145,7 @@ class MojoRenderer(
             context.resources.openRawResource(R.raw.boring_vertex_shader).bufferedReader()
                 .readText()
         fragmentShader =
-            context.resources.openRawResource(R.raw.boring_fragment_shader).bufferedReader()
+            context.resources.openRawResource(R.raw.glitch).bufferedReader()
                 .readText()
 
         program = createProgram(vertexShader, fragmentShader)
@@ -207,10 +204,6 @@ class MojoRenderer(
                 height = temp
             }
 
-            imageByteBuffer =
-                ByteBuffer.allocateDirect(height * width * 4).order(ByteOrder.nativeOrder())
-            bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-
         } catch (e: Exception) {
             Log.e(TAG, "Failed to config mp: $e")
         }
@@ -244,6 +237,10 @@ class MojoRenderer(
 
         GLES32.glClearColor(255f, 255f, 255f, 1f)
         GLES32.glClear(GLES32.GL_DEPTH_BUFFER_BIT or GLES32.GL_COLOR_BUFFER_BIT)
+
+        if(program != 0) {
+            Log.e(TAG, "Program = $program")
+        }
 
         GLES32.glUseProgram(program)
         checkGlError("useProgram")
