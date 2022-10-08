@@ -1,10 +1,13 @@
 package com.example.opengldecode
 
+import android.graphics.Bitmap
 import android.media.MediaPlayer
 import android.media.MediaPlayer.SEEK_CLOSEST
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.util.Log
+import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.SeekBar
 import android.widget.SeekBar.OnSeekBarChangeListener
@@ -14,6 +17,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
+import java.util.*
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -21,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var content: FrameLayout
     lateinit var seekBar: SeekBar
     lateinit var mediaPlayer: MediaPlayer
+    lateinit var captureButton: Button
 
     private val pickMedia =
         registerForActivityResult(PickVisualMedia()) { uri ->
@@ -37,15 +45,35 @@ class MainActivity : AppCompatActivity() {
 
         content = findViewById(R.id.content)
         seekBar = findViewById(R.id.seekBar)
+        captureButton = findViewById(R.id.captureButton)
 
         pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.VideoOnly))
+
+        captureButton.setOnClickListener {
+            Log.i("MOJO", "Tapped capture")
+
+            mojoSurfaceView.usePixelCopy { bitmap ->
+                bitmap?.let { bmp ->
+                    val dir = filesDir
+                    if (!dir.exists()) dir.mkdirs()
+                    val file = File(dir, "capture" + UUID.randomUUID() + ".png")
+                    val fOut = FileOutputStream(file)
+
+                    bmp.compress(Bitmap.CompressFormat.PNG, 85, fOut)
+                    fOut.flush()
+                    fOut.close()
+
+                    Log.i("MOJO", "Stored captured image to: ${file.absolutePath}")
+                }
+            }
+        }
     }
 
     private fun onMediaPicked(uri: Uri) {
         seekBar.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 Log.i("MOJO", "onProgressChanged: $progress, byUser: $fromUser")
-                if(fromUser) {
+                if (fromUser) {
                     mediaPlayer.pause()
                     mediaPlayer.seekTo(progress.toLong(), SEEK_CLOSEST)
                 }
