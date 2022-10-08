@@ -7,11 +7,13 @@ import android.graphics.SurfaceTexture.OnFrameAvailableListener
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaPlayer
+import android.opengl.GLES20
 import android.opengl.GLES32
 import android.opengl.GLSurfaceView
 import android.opengl.Matrix
 import android.util.Log
 import android.view.Surface
+import org.json.JSONObject
 import java.io.FileDescriptor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -91,10 +93,10 @@ class MojoRenderer(
 
     private fun createProgram(vertexSource: String, fragmentSource: String): Int {
         val vertexShader = loadShader(GLES32.GL_VERTEX_SHADER, vertexSource)
-        if (vertexShader == 0) return 0
+        //if (vertexShader == 0) return 0
 
         val pixelShader = loadShader(GLES32.GL_FRAGMENT_SHADER, fragmentSource)
-        if (pixelShader == 0) return 0
+        //if (pixelShader == 0) return 0
 
         var program = GLES32.glCreateProgram()
 
@@ -122,6 +124,16 @@ class MojoRenderer(
         var shader = GLES32.glCreateShader(shaderType)
         if (shader != 0) {
             GLES32.glShaderSource(shader, source)
+
+            try {
+                GLES32.glCompileShader(shader)
+            } catch (exc: Exception) {
+                val err = GLES20.glGetShaderInfoLog(shader)
+                Log.e(TAG, err)
+                GLES32.glDeleteShader(shader)
+                throw exc
+            }
+
             GLES32.glCompileShader(shader)
 
             val compiled = IntArray(1)
@@ -237,10 +249,6 @@ class MojoRenderer(
 
         GLES32.glClearColor(255f, 255f, 255f, 1f)
         GLES32.glClear(GLES32.GL_DEPTH_BUFFER_BIT or GLES32.GL_COLOR_BUFFER_BIT)
-
-        if(program != 0) {
-            Log.e(TAG, "Program = $program")
-        }
 
         GLES32.glUseProgram(program)
         checkGlError("useProgram")
