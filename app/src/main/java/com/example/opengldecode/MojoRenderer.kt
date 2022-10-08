@@ -22,7 +22,8 @@ import javax.microedition.khronos.opengles.GL10
 class MojoRenderer(
     private val context: Context,
     private val mediaFd: FileDescriptor,
-    private val onFrameAvailableListener: OnFrameAvailableListener
+    private val onFrameAvailableListener: OnFrameAvailableListener,
+    private val onMediaReady: (mp: MediaPlayer) -> Unit
 ) : GLSurfaceView.Renderer {
 
     val TAG = "MOJO"
@@ -180,10 +181,14 @@ class MojoRenderer(
         mediaPlayer = MediaPlayer()
 
         try {
-            mediaPlayer?.setDataSource(mediaFd)
-            mediaPlayer?.setSurface(surface)
-            surface.release()
-            mediaPlayer?.prepare()
+            mediaPlayer?.let { mp ->
+                mp.setDataSource(mediaFd)
+                mp.setSurface(surface)
+                surface.release()
+                mp.prepare()
+                onMediaReady(mp)
+            }
+
 
             val mediaExtractor = MediaExtractor().apply {
                 setDataSource(mediaFd)

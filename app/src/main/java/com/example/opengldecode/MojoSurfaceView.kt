@@ -4,11 +4,13 @@ import android.content.Context
 import android.graphics.PixelFormat
 import android.graphics.SurfaceTexture
 import android.graphics.SurfaceTexture.OnFrameAvailableListener
+import android.media.MediaPlayer
 import android.net.Uri
 import android.opengl.GLSurfaceView
 import android.util.Log
 
-class MojoSurfaceView(context: Context, mediaUri: Uri) : GLSurfaceView(context), OnFrameAvailableListener {
+class MojoSurfaceView(context: Context, mediaUri: Uri, onMediaReady: (mp: MediaPlayer) -> Unit) :
+    GLSurfaceView(context), OnFrameAvailableListener {
 
     private var renderer: MojoRenderer? = null
 
@@ -19,9 +21,9 @@ class MojoSurfaceView(context: Context, mediaUri: Uri) : GLSurfaceView(context),
         setEGLConfigChooser(8, 8, 8, 8, 16, 0)
 
         context.contentResolver.openFileDescriptor(mediaUri, "r")?.fileDescriptor?.let {
-            renderer = MojoRenderer(context, it, this@MojoSurfaceView)
+            renderer = MojoRenderer(context, it, this@MojoSurfaceView, onMediaReady = onMediaReady)
             setRenderer(renderer)
-            renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
+            renderMode = RENDERMODE_WHEN_DIRTY
         }
     }
 
@@ -31,7 +33,6 @@ class MojoSurfaceView(context: Context, mediaUri: Uri) : GLSurfaceView(context),
     }
 
     override fun onFrameAvailable(surfaceTexture: SurfaceTexture?) {
-        Log.i("MOJO", "onFrameAvailable")
         requestRender()
     }
 
