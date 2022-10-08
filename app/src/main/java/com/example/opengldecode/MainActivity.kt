@@ -1,7 +1,7 @@
 package com.example.opengldecode
 
 import android.media.MediaPlayer
-import android.media.MediaPlayer.OnInfoListener
+import android.media.MediaPlayer.SEEK_CLOSEST
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -45,6 +45,10 @@ class MainActivity : AppCompatActivity() {
         seekBar.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 Log.i("MOJO", "onProgressChanged: $progress, byUser: $fromUser")
+                if(fromUser) {
+                    mediaPlayer.pause()
+                    mediaPlayer.seekTo(progress.toLong(), SEEK_CLOSEST)
+                }
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {
@@ -61,10 +65,13 @@ class MainActivity : AppCompatActivity() {
             seekBar.progress = mp.currentPosition
 
             this.mediaPlayer = mp
-            this.mediaPlayer.setOnSeekCompleteListener { _ -> Log.i("MOJO", "onSeekComplete") }
+            this.mediaPlayer.setOnSeekCompleteListener { _ ->
+                Log.i("MOJO", "onSeekComplete")
+                mediaPlayer.start()
+            }
 
             lifecycleScope.launch {
-                while(true) {
+                while (true) {
                     seekBar.progress = mediaPlayer.currentPosition
                     delay(1000)
                 }
