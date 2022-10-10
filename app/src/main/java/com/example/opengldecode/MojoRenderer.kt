@@ -160,45 +160,11 @@ class MojoRenderer(
 
         if (!applyFragShader) {
             resizeProgram.useAndBind {
-                setSamplerTexIdUniform(U_TEXTURE_NAME, textureId, 0)
-
-                setBufferAttribute(
-                    A_POSITION_NAME,
-                    triangleVerticesData,
-                    TRIANGLE_VERTICES_DATA_SIZE
-                )
-
-                setBufferAttribute(
-                    A_TEXTURE_COORD_NAME,
-                    textureVerticesData,
-                    TEXTURE_VERTICES_DATA_SIZE
-                )
-
-                Matrix.setIdentityM(mMVPMatrix, 0)
-
-                setFloatsUniform(U_MVPMATRIX_NAME, mMVPMatrix)
-                setFloatsUniform(U_STMATRIX_NAME, mSTMatrix)
+                onDrawBoundShaderProgram(this, textureId)
             }
         } else {
             effectsProgram.useAndBind {
-                setSamplerTexIdUniform(U_TEXTURE_NAME, textureId, 0)
-
-                setBufferAttribute(
-                    A_POSITION_NAME,
-                    triangleVerticesData,
-                    TRIANGLE_VERTICES_DATA_SIZE
-                )
-
-                setBufferAttribute(
-                    A_TEXTURE_COORD_NAME,
-                    textureVerticesData,
-                    TEXTURE_VERTICES_DATA_SIZE
-                )
-
-                Matrix.setIdentityM(mMVPMatrix, 0)
-
-                setFloatsUniform(U_MVPMATRIX_NAME, mMVPMatrix)
-                setFloatsUniform(U_STMATRIX_NAME, mSTMatrix)
+                onDrawBoundShaderProgram(this, textureId)
 
                 mediaPlayer?.let { mp ->
                     val currentTime = mp.currentPosition.toFloat() / 1000f
@@ -211,6 +177,29 @@ class MojoRenderer(
         GLES32.glDrawArrays(GLES32.GL_TRIANGLE_STRIP, 0, 4)
 
         GLES32.glFinish()
+    }
+
+    private fun onDrawBoundShaderProgram(glProgram: GlProgram, textureId: Int) {
+        with(glProgram) {
+            setSamplerTexIdUniform(U_TEXTURE_NAME, textureId, 0)
+
+            setBufferAttribute(
+                A_POSITION_NAME,
+                triangleVerticesData,
+                TRIANGLE_VERTICES_DATA_SIZE
+            )
+
+            setBufferAttribute(
+                A_TEXTURE_COORD_NAME,
+                textureVerticesData,
+                TEXTURE_VERTICES_DATA_SIZE
+            )
+
+            Matrix.setIdentityM(mMVPMatrix, 0)
+
+            setFloatsUniform(U_MVPMATRIX_NAME, mMVPMatrix)
+            setFloatsUniform(U_STMATRIX_NAME, mSTMatrix)
+        }
     }
 
     private fun getVideoTrackIndex(extractor: MediaExtractor): Int {
