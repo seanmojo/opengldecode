@@ -7,10 +7,6 @@ precision highp float;
 
 uniform samplerExternalOES u_texture;
 uniform float i_time;
-uniform float u_time;
-uniform float i_play;
-uniform vec2 u_size;
-uniform vec2 i_size;
 
 in vec2 v_tex_coord;
 
