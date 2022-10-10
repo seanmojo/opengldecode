@@ -158,7 +158,7 @@ class MojoRenderer(
         GLES32.glActiveTexture(GLES32.GL_TEXTURE0)
         GLES32.glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId)
 
-        if (applyFragShader) {
+        if (!applyFragShader) {
             resizeProgram.useAndBind {
                 setSamplerTexIdUniform(U_TEXTURE_NAME, textureId, 0)
 
@@ -199,6 +199,7 @@ class MojoRenderer(
 
                 setFloatsUniform(U_MVPMATRIX_NAME, mMVPMatrix)
                 setFloatsUniform(U_STMATRIX_NAME, mSTMatrix)
+
                 mediaPlayer?.let { mp ->
                     val currentTime = mp.currentPosition.toFloat() / 1000f
                     setFloatUniform(I_TIME_NAME, currentTime)
