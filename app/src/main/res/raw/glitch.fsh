@@ -1,10 +1,11 @@
 #version 320 es
+#extension GL_OES_EGL_image_external_essl3 : require
 #define texture2D texture
 #define gl_FragColor fragColor
 
 precision highp float;
 
-uniform sampler2D u_texture;
+uniform samplerExternalOES u_texture;
 uniform float i_time;
 uniform float u_time;
 uniform float i_play;

@@ -53,6 +53,7 @@ class MojoRenderer(
     val mMVPMatrix = FloatArray(16)
     val mSTMatrix = FloatArray(16)
     val projectionMatrix = FloatArray(16)
+    val uSizeLocationValues = FloatArray(2)
 
     var program = 0
     var effectsProgram = 0
@@ -61,6 +62,10 @@ class MojoRenderer(
     var stMatrixHandle = 0
     var attrPositionHandle = 0
     var textureHandle = 0
+    var iGlobalTimeLocation = 0
+    var uGlobalTimeLocation = 0
+    var iPlayTimeLocation = 0
+    var uSizeLocation = 0
 
     lateinit var surfaceTexture: SurfaceTexture
     var mediaPlayer: MediaPlayer? = null
@@ -71,10 +76,6 @@ class MojoRenderer(
     private val GL_TEXTURE_EXTERNAL_OES = 0x8D65
 
     var applyFragShader = false
-        set(value) {
-            field = value
-            recreate()
-        }
 
     init {
         triangleVertices =
@@ -99,12 +100,15 @@ class MojoRenderer(
 
     private fun createProgram(vertexSource: String, fragmentSource: String): Int {
         val vertexShader = loadShader(GLES32.GL_VERTEX_SHADER, vertexSource)
-        //if (vertexShader == 0) return 0
+        checkGlError("loadShader-vertex")
+        if (vertexShader == 0) return 0
 
         val pixelShader = loadShader(GLES32.GL_FRAGMENT_SHADER, fragmentSource)
-        //if (pixelShader == 0) return 0
+        checkGlError("loadShader-fragment")
+        if (pixelShader == 0) return 0
 
         var program = GLES32.glCreateProgram()
+        checkGlError("glCreateProgram")
 
         if (program != 0) {
             GLES32.glAttachShader(program, vertexShader)
@@ -128,11 +132,15 @@ class MojoRenderer(
 
     private fun loadShader(shaderType: Int, source: String): Int {
         var shader = GLES32.glCreateShader(shaderType)
+        checkGlError("createShader")
+
         if (shader != 0) {
             GLES32.glShaderSource(shader, source)
+            checkGlError("glShaderSource")
 
             try {
                 GLES32.glCompileShader(shader)
+                checkGlError("compileShader")
             } catch (exc: Exception) {
                 val err = GLES20.glGetShaderInfoLog(shader)
                 Log.e(TAG, err)
@@ -141,9 +149,11 @@ class MojoRenderer(
             }
 
             GLES32.glCompileShader(shader)
+            checkGlError("glShaderSource-second")
 
             val compiled = IntArray(1)
             GLES32.glGetShaderiv(shader, GLES32.GL_COMPILE_STATUS, compiled, 0)
+            checkGlError("glGetshaderIV")
 
             if (compiled[0] == 0) {
                 Log.e(
@@ -160,7 +170,6 @@ class MojoRenderer(
 
     private fun recreate() {
         program = createProgram(vertexShader, fragmentShader)
-        //effectsProgram = createProgram(vertexShader, effectShader)
     }
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
@@ -171,7 +180,7 @@ class MojoRenderer(
             context.resources.openRawResource(R.raw.boring_fragment_shader).bufferedReader()
                 .readText()
         effectShader =
-            context.resources.openRawResource(R.raw.negative).bufferedReader()
+            context.resources.openRawResource(R.raw.glitch).bufferedReader()
                 .readText()
 
         program = createProgram(vertexShader, fragmentShader)
@@ -243,21 +252,6 @@ class MojoRenderer(
     }
 
     private fun updateAttributes() {
-        attrPositionHandle = GLES32.glGetAttribLocation(program, "aPosition")
-        checkGlError("aPosition")
-
-        textureHandle = GLES32.glGetAttribLocation(program, "aTextureCoord")
-        checkGlError("aTextureCoord")
-
-        mvpMatrixHandle = GLES32.glGetUniformLocation(program, "uMVPMatrix")
-        checkGlError("uMVPMatrix")
-
-        stMatrixHandle = GLES32.glGetUniformLocation(program, "uSTMatrix")
-        checkGlError("uSTMatrix")
-
-
-
-        //EFFECTS
         attrPositionHandle = GLES32.glGetAttribLocation(effectsProgram, "aPosition")
         checkGlError("aPosition")
 
@@ -269,6 +263,18 @@ class MojoRenderer(
 
         stMatrixHandle = GLES32.glGetUniformLocation(effectsProgram, "uSTMatrix")
         checkGlError("uSTMatrix")
+
+        iGlobalTimeLocation = GLES32.glGetUniformLocation(program, "i_time")
+        checkGlError("i_time")
+
+        uGlobalTimeLocation = GLES32.glGetUniformLocation(program, "u_time")
+        checkGlError("u_time")
+
+        iPlayTimeLocation = GLES32.glGetUniformLocation(program, "i_play")
+        checkGlError("i_play")
+
+        uSizeLocation = GLES32.glGetUniformLocation(program, "u_size")
+        checkGlError("u_size")
     }
 
     override fun onSurfaceChanged(gl: GL10, width: Int, height: Int) {
@@ -278,7 +284,7 @@ class MojoRenderer(
     }
 
     override fun onDrawFrame(gl: GL10?) {
-        if(applyFragShader) {
+        if (applyFragShader) {
             effectsProgram = createProgram(vertexShader, effectShader)
         } else {
             program = createProgram(vertexShader, fragmentShader)
@@ -290,8 +296,25 @@ class MojoRenderer(
         GLES32.glClearColor(255f, 255f, 255f, 1f)
         GLES32.glClear(GLES32.GL_DEPTH_BUFFER_BIT or GLES32.GL_COLOR_BUFFER_BIT)
 
-        GLES32.glUseProgram(if(applyFragShader) effectsProgram else program)
+        GLES32.glUseProgram(if (applyFragShader) effectsProgram else program)
         checkGlError("useProgram")
+
+        GLES32.glUniform1i(GLES32.glGetUniformLocation(program, "u_texture"), 0)
+
+        //Hard-code for now, but use actual mediaplayer time going forward
+        mediaPlayer?.let { mp ->
+            Log.i("MOJO", "TIME: ${(mp.currentPosition.toFloat() / 1000f)}")
+
+            GLES32.glUniform1f(iGlobalTimeLocation, (mp.currentPosition / 1000).toFloat())
+            GLES32.glUniform1f(uGlobalTimeLocation, (mp.currentPosition / 1000).toFloat())
+            GLES32.glUniform1f(iPlayTimeLocation, 0f)
+        }
+
+
+        uSizeLocationValues[0] = width.toFloat()
+        uSizeLocationValues[1] = height.toFloat()
+        GLES32.glUniform2fv(uSizeLocation, 1, uSizeLocationValues, 0)
+
 
         GLES32.glActiveTexture(GLES32.GL_TEXTURE0)
         GLES32.glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId)
@@ -323,6 +346,7 @@ class MojoRenderer(
         GLES32.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mMVPMatrix, 0)
         GLES32.glUniformMatrix4fv(stMatrixHandle, 1, false, mSTMatrix, 0)
 
+        GLES32.glBindFramebuffer(GLES32.GL_FRAMEBUFFER, 0)
         GLES32.glDrawArrays(GLES32.GL_TRIANGLE_STRIP, 0, 4)
 
         GLES32.glFinish()
@@ -344,5 +368,12 @@ class MojoRenderer(
             if (mime != null && mime.startsWith("video/")) return i
         }
         return -1
+    }
+
+    private fun getCurrentMediaTimeInSeconds() {
+        mediaPlayer?.let { mp ->
+            val durationSeconds = mp.duration / 1000
+            val currentPositionSeconds = mp.currentPosition
+        }
     }
 }
