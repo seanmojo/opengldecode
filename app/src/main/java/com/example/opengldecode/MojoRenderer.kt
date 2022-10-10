@@ -305,8 +305,8 @@ class MojoRenderer(
         mediaPlayer?.let { mp ->
             Log.i("MOJO", "TIME: ${(mp.currentPosition.toFloat() / 1000f)}")
 
-            GLES32.glUniform1f(iGlobalTimeLocation, (mp.currentPosition / 1000).toFloat())
-            GLES32.glUniform1f(uGlobalTimeLocation, (mp.currentPosition / 1000).toFloat())
+            GLES32.glUniform1f(iGlobalTimeLocation, (mp.currentPosition.toFloat() / 1000f))
+            GLES32.glUniform1f(uGlobalTimeLocation, (mp.currentPosition.toFloat() / 1000f))
             GLES32.glUniform1f(iPlayTimeLocation, 0f)
         }
 
