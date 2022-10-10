@@ -6,16 +6,14 @@ import android.graphics.SurfaceTexture.OnFrameAvailableListener
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaPlayer
-import android.opengl.GLES20
 import android.opengl.GLES32
 import android.opengl.GLSurfaceView
 import android.opengl.Matrix
 import android.util.Log
 import android.view.Surface
+import video.mojo.shader.GlProgram
+import video.mojo.shader.useAndBind
 import java.io.FileDescriptor
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
@@ -26,175 +24,67 @@ class MojoRenderer(
     private val onMediaReady: (mp: MediaPlayer) -> Unit
 ) : GLSurfaceView.Renderer {
 
-    val TAG = "MOJO"
+    companion object {
+        const val TAG = "MOJO"
 
-    private val FLOAT_SIZE_BYTES = 4
-    private val TRIANGLE_VERTICES_DATA_STRIDE_BYTES = 3 * FLOAT_SIZE_BYTES
-    private val TEXTURE_VERTICES_DATA_STRIDE_BYTES = 2 * FLOAT_SIZE_BYTES
-    private val TRIANGLE_VERTICES_DATA_POS_OFFSET = 0
-    private val TRIANGLE_VERTICES_DATA_UV_OFFSET = 0
-    private val mTriangleVerticesData = floatArrayOf(
-        -1.0f, -1.0f, 0f, 1.0f,
-        -1.0f, 0f, -1.0f, 1.0f, 0f, 1.0f, 1.0f, 0f
-    )
+        private const val TRIANGLE_VERTICES_DATA_SIZE = 3
+        private const val TEXTURE_VERTICES_DATA_SIZE = 2
+        private const val GL_TEXTURE_EXTERNAL_OES = 0x8D65
+        private const val A_POSITION_NAME = "aPosition"
+        private const val A_TEXTURE_COORD_NAME = "aTextureCoord"
+        private const val U_MVPMATRIX_NAME = "uMVPMatrix"
+        private const val U_STMATRIX_NAME = "uSTMatrix"
+        private const val U_TEXTURE_NAME = "u_texture"
+        private const val I_TIME_NAME = "i_time"
+        private val triangleVerticesData = floatArrayOf(
+            -1.0f, -1.0f, 0f, 1.0f,
+            -1.0f, 0f, -1.0f, 1.0f,
+            0f, 1.0f, 1.0f, 0f
+        )
 
-    private val mTextureVerticesData = floatArrayOf(
-        0f, 0.0f, 1.0f, 0f,
-        0.0f, 1f, 1.0f, 1.0f
-    )
+        private val textureVerticesData = floatArrayOf(
+            0f, 0.0f, 1.0f, 0f,
+            0.0f, 1f, 1.0f, 1.0f
+        )
+    }
 
-    var triangleVertices: FloatBuffer? = null
-    var textureVertices: FloatBuffer? = null
+    private val mMVPMatrix = FloatArray(16)
+    private val mSTMatrix = FloatArray(16)
 
-    private var vertexShader = ""
-    private var fragmentShader = ""
-    private var effectShader = ""
+    private val projectionMatrix = FloatArray(16)
+    private lateinit var resizeProgram: GlProgram
+    private lateinit var effectsProgram: GlProgram
+    private var textureId: Int = 0
 
-    val mMVPMatrix = FloatArray(16)
-    val mSTMatrix = FloatArray(16)
-    val projectionMatrix = FloatArray(16)
-    val uSizeLocationValues = FloatArray(2)
+    private lateinit var surfaceTexture: SurfaceTexture
 
-    var program = 0
-    var effectsProgram = 0
-    var textureId = 0
-    var mvpMatrixHandle = 0
-    var stMatrixHandle = 0
-    var attrPositionHandle = 0
-    var textureHandle = 0
-    var iGlobalTimeLocation = 0
-    var uGlobalTimeLocation = 0
-    var iPlayTimeLocation = 0
-    var uSizeLocation = 0
+    private var mediaPlayer: MediaPlayer? = null
 
-    lateinit var surfaceTexture: SurfaceTexture
-    var mediaPlayer: MediaPlayer? = null
-
-    var width = 0
-    var height = 0
-
-    private val GL_TEXTURE_EXTERNAL_OES = 0x8D65
+    private var width = 0
+    private var height = 0
 
     var applyFragShader = false
-
-    init {
-        triangleVertices =
-            ByteBuffer.allocateDirect(mTriangleVerticesData.size * FLOAT_SIZE_BYTES).order(
-                ByteOrder.nativeOrder()
-            ).asFloatBuffer()
-        triangleVertices?.put(mTriangleVerticesData)?.position(0)
-
-        textureVertices =
-            ByteBuffer.allocateDirect(mTextureVerticesData.size * FLOAT_SIZE_BYTES).order(
-                ByteOrder.nativeOrder()
-            ).asFloatBuffer()
-        textureVertices?.put(mTextureVerticesData)?.position(0)
-
-        Matrix.setIdentityM(mSTMatrix, 0)
-    }
 
     fun onDetachedFromWindow() {
         mediaPlayer?.stop()
         mediaPlayer?.release()
     }
 
-    private fun createProgram(vertexSource: String, fragmentSource: String): Int {
-        val vertexShader = loadShader(GLES32.GL_VERTEX_SHADER, vertexSource)
-        checkGlError("loadShader-vertex")
-        if (vertexShader == 0) return 0
-
-        val pixelShader = loadShader(GLES32.GL_FRAGMENT_SHADER, fragmentSource)
-        checkGlError("loadShader-fragment")
-        if (pixelShader == 0) return 0
-
-        var program = GLES32.glCreateProgram()
-        checkGlError("glCreateProgram")
-
-        if (program != 0) {
-            GLES32.glAttachShader(program, vertexShader)
-            checkGlError("vertexShader")
-            GLES32.glAttachShader(program, pixelShader)
-            checkGlError("pixelShader")
-
-            GLES32.glLinkProgram(program)
-            val linkStatus = IntArray(1)
-            GLES32.glGetProgramiv(program, GLES32.GL_LINK_STATUS, linkStatus, 0)
-
-            if (linkStatus[0] != GLES32.GL_TRUE) {
-                Log.e(TAG, "Failed to link program: ${GLES32.glGetProgramInfoLog(program)}")
-                GLES32.glDeleteProgram(program)
-                program = 0
-            }
-        }
-
-        return program
-    }
-
-    private fun loadShader(shaderType: Int, source: String): Int {
-        var shader = GLES32.glCreateShader(shaderType)
-        checkGlError("createShader")
-
-        if (shader != 0) {
-            GLES32.glShaderSource(shader, source)
-            checkGlError("glShaderSource")
-
-            try {
-                GLES32.glCompileShader(shader)
-                checkGlError("compileShader")
-            } catch (exc: Exception) {
-                val err = GLES20.glGetShaderInfoLog(shader)
-                Log.e(TAG, err)
-                GLES32.glDeleteShader(shader)
-                throw exc
-            }
-
-            GLES32.glCompileShader(shader)
-            checkGlError("glShaderSource-second")
-
-            val compiled = IntArray(1)
-            GLES32.glGetShaderiv(shader, GLES32.GL_COMPILE_STATUS, compiled, 0)
-            checkGlError("glGetshaderIV")
-
-            if (compiled[0] == 0) {
-                Log.e(
-                    TAG,
-                    "Failed to compile shader: $shaderType, ${GLES32.glGetShaderInfoLog(shader)}"
-                )
-                GLES32.glDeleteShader(shader)
-                shader = 0
-            }
-        }
-
-        return shader
-    }
-
-    private fun recreate() {
-        program = createProgram(vertexShader, fragmentShader)
-    }
-
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        vertexShader =
-            context.resources.openRawResource(R.raw.boring_vertex_shader).bufferedReader()
-                .readText()
-        fragmentShader =
-            context.resources.openRawResource(R.raw.boring_fragment_shader).bufferedReader()
-                .readText()
-        effectShader =
-            context.resources.openRawResource(R.raw.glitch).bufferedReader()
-                .readText()
+        val vertexShader = context.resources.openRawResource(R.raw.boring_vertex_shader)
+            .bufferedReader()
+            .readText()
+        val fragmentShader = context.resources.openRawResource(R.raw.boring_fragment_shader)
+            .bufferedReader()
+            .readText()
 
-        program = createProgram(vertexShader, fragmentShader)
-        effectsProgram = createProgram(vertexShader, effectShader)
+        val effectsShader = context.resources.openRawResource(R.raw.glitch)
+            .bufferedReader()
+            .readText()
 
-        if (program == 0) {
-            return
-        }
+        resizeProgram = GlProgram(vertexShader, fragmentShader)
+        effectsProgram = GlProgram(vertexShader, effectsShader)
 
-        if (effectsProgram == 0) {
-            return
-        }
-
-        updateAttributes()
 
         val textures = IntArray(1)
         GLES32.glGenTextures(1, textures, 0)
@@ -251,32 +141,6 @@ class MojoRenderer(
         mediaPlayer?.start()
     }
 
-    private fun updateAttributes() {
-        attrPositionHandle = GLES32.glGetAttribLocation(effectsProgram, "aPosition")
-        checkGlError("aPosition")
-
-        textureHandle = GLES32.glGetAttribLocation(effectsProgram, "aTextureCoord")
-        checkGlError("aTextureCoord")
-
-        mvpMatrixHandle = GLES32.glGetUniformLocation(effectsProgram, "uMVPMatrix")
-        checkGlError("uMVPMatrix")
-
-        stMatrixHandle = GLES32.glGetUniformLocation(effectsProgram, "uSTMatrix")
-        checkGlError("uSTMatrix")
-
-        iGlobalTimeLocation = GLES32.glGetUniformLocation(program, "i_time")
-        checkGlError("i_time")
-
-        uGlobalTimeLocation = GLES32.glGetUniformLocation(program, "u_time")
-        checkGlError("u_time")
-
-        iPlayTimeLocation = GLES32.glGetUniformLocation(program, "i_play")
-        checkGlError("i_play")
-
-        uSizeLocation = GLES32.glGetUniformLocation(program, "u_size")
-        checkGlError("u_size")
-    }
-
     override fun onSurfaceChanged(gl: GL10, width: Int, height: Int) {
         GLES32.glViewport(0, 0, width, height)
         Matrix.frustumM(projectionMatrix, 0, -1f, 1f, -1f, 1f, 1f, 10f)
@@ -291,68 +155,63 @@ class MojoRenderer(
         GLES32.glClearColor(255f, 255f, 255f, 1f)
         GLES32.glClear(GLES32.GL_DEPTH_BUFFER_BIT or GLES32.GL_COLOR_BUFFER_BIT)
 
-        GLES32.glUseProgram(if (applyFragShader) effectsProgram else program)
-        checkGlError("useProgram")
-
-        GLES32.glUniform1i(GLES32.glGetUniformLocation(program, "u_texture"), 0)
-
-        //Hard-code for now, but use actual mediaplayer time going forward
-        mediaPlayer?.let { mp ->
-            Log.i("MOJO", "TIME: ${(mp.currentPosition.toFloat() / 1000f)}")
-
-            GLES32.glUniform1f(iGlobalTimeLocation, (mp.currentPosition.toFloat() / 1000f))
-            GLES32.glUniform1f(uGlobalTimeLocation, (mp.currentPosition.toFloat() / 1000f))
-            GLES32.glUniform1f(iPlayTimeLocation, 0f)
-        }
-
-
-        uSizeLocationValues[0] = width.toFloat()
-        uSizeLocationValues[1] = height.toFloat()
-        GLES32.glUniform2fv(uSizeLocation, 1, uSizeLocationValues, 0)
-
-
         GLES32.glActiveTexture(GLES32.GL_TEXTURE0)
         GLES32.glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId)
 
-        triangleVertices?.position(TRIANGLE_VERTICES_DATA_POS_OFFSET)
-        GLES32.glVertexAttribPointer(
-            attrPositionHandle,
-            3,
-            GLES32.GL_FLOAT,
-            false,
-            TRIANGLE_VERTICES_DATA_STRIDE_BYTES,
-            triangleVertices
-        )
-        GLES32.glEnableVertexAttribArray(attrPositionHandle)
+        if (applyFragShader) {
+            resizeProgram.useAndBind {
+                setSamplerTexIdUniform(U_TEXTURE_NAME, textureId, 0)
 
-        textureVertices?.position(TRIANGLE_VERTICES_DATA_UV_OFFSET)
-        GLES32.glVertexAttribPointer(
-            textureHandle,
-            2,
-            GLES32.GL_FLOAT,
-            false,
-            TEXTURE_VERTICES_DATA_STRIDE_BYTES,
-            textureVertices
-        )
-        GLES32.glEnableVertexAttribArray(textureHandle)
+                setBufferAttribute(
+                    A_POSITION_NAME,
+                    triangleVerticesData,
+                    TRIANGLE_VERTICES_DATA_SIZE
+                )
 
-        Matrix.setIdentityM(mMVPMatrix, 0)
+                setBufferAttribute(
+                    A_TEXTURE_COORD_NAME,
+                    textureVerticesData,
+                    TEXTURE_VERTICES_DATA_SIZE
+                )
 
-        GLES32.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mMVPMatrix, 0)
-        GLES32.glUniformMatrix4fv(stMatrixHandle, 1, false, mSTMatrix, 0)
+                Matrix.setIdentityM(mMVPMatrix, 0)
+
+                setFloatsUniform(U_MVPMATRIX_NAME, mMVPMatrix)
+                setFloatsUniform(U_STMATRIX_NAME, mSTMatrix)
+            }
+        } else {
+            effectsProgram.useAndBind {
+                setSamplerTexIdUniform(U_TEXTURE_NAME, textureId, 0)
+
+                setBufferAttribute(
+                    A_POSITION_NAME,
+                    triangleVerticesData,
+                    TRIANGLE_VERTICES_DATA_SIZE
+                )
+
+                setBufferAttribute(
+                    A_TEXTURE_COORD_NAME,
+                    textureVerticesData,
+                    TEXTURE_VERTICES_DATA_SIZE
+                )
+
+                Matrix.setIdentityM(mMVPMatrix, 0)
+
+                setFloatsUniform(U_MVPMATRIX_NAME, mMVPMatrix)
+                setFloatsUniform(U_STMATRIX_NAME, mSTMatrix)
+                mediaPlayer?.let { mp ->
+                    val currentTime = mp.currentPosition.toFloat() / 1000f
+                    Log.i("MOJO", "TIME: $currentTime")
+
+                    setFloatUniform(I_TIME_NAME, currentTime)
+                }
+            }
+        }
 
         GLES32.glBindFramebuffer(GLES32.GL_FRAMEBUFFER, 0)
         GLES32.glDrawArrays(GLES32.GL_TRIANGLE_STRIP, 0, 4)
 
         GLES32.glFinish()
-    }
-
-    private fun checkGlError(op: String) {
-        var error: Int
-        while (GLES32.glGetError().also { error = it } != GLES32.GL_NO_ERROR) {
-            Log.e(TAG, "$op: glError $error")
-            throw java.lang.RuntimeException("$op: glError $error")
-        }
     }
 
     private fun getVideoTrackIndex(extractor: MediaExtractor): Int {
