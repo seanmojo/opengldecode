@@ -3,8 +3,6 @@ package com.example.opengldecode
 import android.content.Context
 import android.graphics.SurfaceTexture
 import android.graphics.SurfaceTexture.OnFrameAvailableListener
-import android.media.MediaExtractor
-import android.media.MediaFormat
 import android.media.MediaPlayer
 import android.opengl.GLES32
 import android.opengl.GLSurfaceView
@@ -55,15 +53,19 @@ class MojoRenderer(
     private lateinit var resizeProgram: GlProgram
     private lateinit var effectsProgram: GlProgram
     private var textureId: Int = 0
+    private var textureId1: Int = 1
 
     private lateinit var surfaceTexture: SurfaceTexture
+    private lateinit var surfaceTexture1: SurfaceTexture
 
     private var mediaPlayer: MediaPlayer? = null
+    private var mediaPlayer1: MediaPlayer? = null
 
     private var width = 0
     private var height = 0
 
     var applyFragShader = false
+    var first = true
 
     fun onDetachedFromWindow() {
         mediaPlayer?.stop()
@@ -86,11 +88,10 @@ class MojoRenderer(
         effectsProgram = GlProgram(vertexShader, effectsShader)
 
 
-        val textures = IntArray(1)
-        GLES32.glGenTextures(1, textures, 0)
+        val textures = IntArray(2)
+        GLES32.glGenTextures(2, textures, 0)
         textureId = textures[0]
-
-//        GLES32.glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId)
+        textureId1 = textures[1]
 
         GLES32.glTexParameterf(
             GL_TEXTURE_EXTERNAL_OES, GLES32.GL_TEXTURE_MIN_FILTER,
@@ -101,11 +102,13 @@ class MojoRenderer(
             GLES32.GL_LINEAR.toFloat()
         )
 
-        surfaceTexture = SurfaceTexture(textureId)
-        surfaceTexture.setOnFrameAvailableListener(onFrameAvailableListener)
+        createSurfaceTextures()
 
         val surface = Surface(surfaceTexture)
+        val surface1 = Surface(surfaceTexture1)
+
         mediaPlayer = MediaPlayer()
+        mediaPlayer1 = MediaPlayer()
 
         try {
             mediaPlayer?.let { mp ->
@@ -116,29 +119,42 @@ class MojoRenderer(
                 onMediaReady(mp)
             }
 
-
-            val mediaExtractor = MediaExtractor().apply {
-                setDataSource(mediaFds[0])
+            mediaPlayer1?.let { mp ->
+                mp.setDataSource(mediaFds[1])
+                mp.setSurface(surface1)
+                surface1.release()
+                mp.prepare()
+                onMediaReady(mp)
             }
-            val videoTrackIndex = getVideoTrackIndex(mediaExtractor)
-
-            mediaExtractor.selectTrack(videoTrackIndex)
-            val mediaFormat = mediaExtractor.getTrackFormat(videoTrackIndex)
-            this.width = mediaFormat.getInteger(MediaFormat.KEY_WIDTH)
-            this.height = mediaFormat.getInteger(MediaFormat.KEY_HEIGHT)
-            val rotation = mediaFormat.getInteger(MediaFormat.KEY_ROTATION)
-
-            if (rotation == 90 || rotation == 270) {
-                val temp = width
-                width = height
-                height = temp
-            }
-
         } catch (e: Exception) {
             Log.e(TAG, "Failed to config mp: $e")
         }
 
-        mediaPlayer?.start()
+        if (first) {
+            mediaPlayer?.start()
+        } else {
+            mediaPlayer1?.start()
+        }
+    }
+
+    fun switchVideo() {
+        if (first) {
+            mediaPlayer?.pause()
+            mediaPlayer1?.start()
+        } else {
+            mediaPlayer1?.pause()
+            mediaPlayer?.start()
+        }
+
+        first = !first
+    }
+
+    private fun createSurfaceTextures() {
+        surfaceTexture = SurfaceTexture(textureId)
+        surfaceTexture.setOnFrameAvailableListener(onFrameAvailableListener)
+
+        surfaceTexture1 = SurfaceTexture(textureId1)
+        surfaceTexture1.setOnFrameAvailableListener(onFrameAvailableListener)
     }
 
     override fun onSurfaceChanged(gl: GL10, width: Int, height: Int) {
@@ -148,7 +164,14 @@ class MojoRenderer(
     }
 
     override fun onDrawFrame(gl: GL10?) {
+        if (first) {
+            onDraw(surfaceTexture, textureId)
+        } else {
+            onDraw(surfaceTexture1, textureId1)
+        }
+    }
 
+    private fun onDraw(surfaceTexture: SurfaceTexture, textureId: Int) {
         surfaceTexture.updateTexImage()
         surfaceTexture.getTransformMatrix(mSTMatrix)
 
@@ -200,15 +223,5 @@ class MojoRenderer(
             setFloatsUniform(U_MVPMATRIX_NAME, mMVPMatrix)
             setFloatsUniform(U_STMATRIX_NAME, mSTMatrix)
         }
-    }
-
-    private fun getVideoTrackIndex(extractor: MediaExtractor): Int {
-        val numTracks = extractor.trackCount
-        for (i in 0 until numTracks) {
-            val format = extractor.getTrackFormat(i)
-            val mime = format.getString(MediaFormat.KEY_MIME)
-            if (mime != null && mime.startsWith("video/")) return i
-        }
-        return -1
     }
 }

@@ -50,4 +50,10 @@ class MojoSurfaceView(
         }
     }
 
+    fun switchVideo() {
+        renderer?.let {
+            it.switchVideo()
+        }
+    }
+
 }
