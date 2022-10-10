@@ -7,8 +7,13 @@ import android.graphics.SurfaceTexture.OnFrameAvailableListener
 import android.media.MediaPlayer
 import android.net.Uri
 import android.opengl.GLSurfaceView
+import java.io.FileDescriptor
 
-class MojoSurfaceView(context: Context, mediaUri: Uri, onMediaReady: (mp: MediaPlayer) -> Unit) :
+class MojoSurfaceView(
+    context: Context,
+    mediaUris: List<Uri>,
+    onMediaReady: (mp: MediaPlayer) -> Unit
+) :
     GLSurfaceView(context), OnFrameAvailableListener {
 
     private var renderer: MojoRenderer? = null
@@ -19,11 +24,17 @@ class MojoSurfaceView(context: Context, mediaUri: Uri, onMediaReady: (mp: MediaP
         holder.setFormat(PixelFormat.TRANSLUCENT)
         setEGLConfigChooser(8, 8, 8, 8, 16, 0)
 
-        context.contentResolver.openFileDescriptor(mediaUri, "r")?.fileDescriptor?.let {
-            renderer = MojoRenderer(context, it, this@MojoSurfaceView, onMediaReady = onMediaReady)
-            setRenderer(renderer)
-            renderMode = RENDERMODE_WHEN_DIRTY
+        val mediaFds = mutableListOf<FileDescriptor>()
+        mediaUris.forEach { uri ->
+            context.contentResolver.openFileDescriptor(uri, "r")?.fileDescriptor?.let {
+                mediaFds.add(it)
+            }
         }
+
+        renderer =
+            MojoRenderer(context, mediaFds, this@MojoSurfaceView, onMediaReady = onMediaReady)
+        setRenderer(renderer)
+        renderMode = RENDERMODE_WHEN_DIRTY
     }
 
     override fun onDetachedFromWindow() {

@@ -19,7 +19,7 @@ import javax.microedition.khronos.opengles.GL10
 
 class MojoRenderer(
     private val context: Context,
-    private val mediaFd: FileDescriptor,
+    private val mediaFd: List<FileDescriptor>,
     private val onFrameAvailableListener: OnFrameAvailableListener,
     private val onMediaReady: (mp: MediaPlayer) -> Unit
 ) : GLSurfaceView.Renderer {
