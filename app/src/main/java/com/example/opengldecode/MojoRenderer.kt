@@ -201,8 +201,6 @@ class MojoRenderer(
                 setFloatsUniform(U_STMATRIX_NAME, mSTMatrix)
                 mediaPlayer?.let { mp ->
                     val currentTime = mp.currentPosition.toFloat() / 1000f
-                    Log.i("MOJO", "TIME: $currentTime")
-
                     setFloatUniform(I_TIME_NAME, currentTime)
                 }
             }
