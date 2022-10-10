@@ -284,11 +284,6 @@ class MojoRenderer(
     }
 
     override fun onDrawFrame(gl: GL10?) {
-        if (applyFragShader) {
-            effectsProgram = createProgram(vertexShader, effectShader)
-        } else {
-            program = createProgram(vertexShader, fragmentShader)
-        }
 
         surfaceTexture.updateTexImage()
         surfaceTexture.getTransformMatrix(mSTMatrix)
