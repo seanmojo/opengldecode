@@ -1,7 +1,6 @@
 package com.example.opengldecode
 
 import android.graphics.Bitmap
-import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -22,7 +21,6 @@ class MainActivity : AppCompatActivity() {
     lateinit var mojoSurfaceView: MojoSurfaceView
     lateinit var content: FrameLayout
     lateinit var seekBar: SeekBar
-    val mediaPlayers = mutableListOf<MediaPlayer>()
     lateinit var captureButton: Button
     lateinit var toggleShaderButton: Button
 

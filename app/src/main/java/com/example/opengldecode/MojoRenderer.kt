@@ -19,7 +19,7 @@ import javax.microedition.khronos.opengles.GL10
 
 class MojoRenderer(
     private val context: Context,
-    private val mediaFd: List<FileDescriptor>,
+    private val mediaFds: List<FileDescriptor>,
     private val onFrameAvailableListener: OnFrameAvailableListener,
     private val onMediaReady: (mp: MediaPlayer) -> Unit
 ) : GLSurfaceView.Renderer {
@@ -90,7 +90,7 @@ class MojoRenderer(
         GLES32.glGenTextures(1, textures, 0)
         textureId = textures[0]
 
-        GLES32.glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId)
+//        GLES32.glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId)
 
         GLES32.glTexParameterf(
             GL_TEXTURE_EXTERNAL_OES, GLES32.GL_TEXTURE_MIN_FILTER,
@@ -109,7 +109,7 @@ class MojoRenderer(
 
         try {
             mediaPlayer?.let { mp ->
-                mp.setDataSource(mediaFd)
+                mp.setDataSource(mediaFds[0])
                 mp.setSurface(surface)
                 surface.release()
                 mp.prepare()
@@ -118,7 +118,7 @@ class MojoRenderer(
 
 
             val mediaExtractor = MediaExtractor().apply {
-                setDataSource(mediaFd)
+                setDataSource(mediaFds[0])
             }
             val videoTrackIndex = getVideoTrackIndex(mediaExtractor)
 
@@ -220,12 +220,5 @@ class MojoRenderer(
             if (mime != null && mime.startsWith("video/")) return i
         }
         return -1
-    }
-
-    private fun getCurrentMediaTimeInSeconds() {
-        mediaPlayer?.let { mp ->
-            val durationSeconds = mp.duration / 1000
-            val currentPositionSeconds = mp.currentPosition
-        }
     }
 }
