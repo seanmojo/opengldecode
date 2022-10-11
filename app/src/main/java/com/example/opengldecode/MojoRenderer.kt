@@ -59,7 +59,6 @@ class MojoRenderer(
     //This is a fake value used to give a value between 0.0 and 1.0
     //to the transition shader in place of a real value (I_TRANSITION_TIME)
     private var globalTime = 0f
-    private var totalDurationSeconds = 0
 
     private val mMVPMatrix = FloatArray(16)
     private val mSTMatrix = FloatArray(16)
@@ -136,14 +135,12 @@ class MojoRenderer(
         val surface = Surface(surfaceTexture)
         val surface1 = Surface(surfaceTexture1)
 
-        mediaPlayer = MediaPlayer()
-        mediaPlayer1 = MediaPlayer()
-
-        totalDurationSeconds =
-            if ((mediaPlayer?.duration ?: 0) > (mediaPlayer1?.duration ?: 0)) mediaPlayer?.duration
-                ?: (0 / 1000) else mediaPlayer1?.duration ?: (0 / 1000)
-
         try {
+            if (mediaFds.isEmpty()) {
+                throw RuntimeException("No media loaded!!")
+            }
+
+            mediaPlayer = MediaPlayer()
             mediaPlayer?.let { mp ->
                 mp.setDataSource(mediaFds[0])
                 mp.setSurface(surface)
@@ -152,12 +149,15 @@ class MojoRenderer(
                 onMediaReady(mp)
             }
 
-            mediaPlayer1?.let { mp ->
-                mp.setDataSource(mediaFds[1])
-                mp.setSurface(surface1)
-                surface1.release()
-                mp.prepare()
-                onMediaReady(mp)
+            if (mediaFds.size > 1) {
+                mediaPlayer1 = MediaPlayer()
+                mediaPlayer1?.let { mp ->
+                    mp.setDataSource(mediaFds[1])
+                    mp.setSurface(surface1)
+                    surface1.release()
+                    mp.prepare()
+                    onMediaReady(mp)
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to config mp: $e")
@@ -174,13 +174,9 @@ class MojoRenderer(
                     val currentPosSeconds = it.currentPosition.toFloat()
                     val total = it.duration.toFloat()
 
-                    Log.i("MOJO", "currentPos: ${it.currentPosition.toFloat()}, total: ${it.duration.toFloat()}")
                     val percentage = (currentPosSeconds / total)
                     globalTime = percentage
                 }
-
-                //globalTime += 0.05f
-                Log.i("MOJO", "Global time: $globalTime")
             }
         }
     }
@@ -213,7 +209,7 @@ class MojoRenderer(
         surfaceTexture.updateTexImage()
         surfaceTexture.getTransformMatrix(mSTMatrix)
 
-        GLES32.glClearColor(255f, 255f, 255f, 1f)
+        GLES32.glClearColor(0f, 0f, 0f, 1f)
         GLES32.glClear(GLES32.GL_DEPTH_BUFFER_BIT or GLES32.GL_COLOR_BUFFER_BIT)
 
         GLES32.glActiveTexture(GLES32.GL_TEXTURE0)
@@ -221,7 +217,7 @@ class MojoRenderer(
 
         if (!applyFragShader) {
             resizeProgram.useAndBind {
-                onDrawBoundShaderProgram(this, textureId)
+                onDrawBoundShaderProgram(this)
                 setFloatUniform(I_TRANSITION_PROGRESS_NAME, globalTime)
 
                 mediaPlayer?.let { mp ->
@@ -231,7 +227,7 @@ class MojoRenderer(
             }
         } else {
             effectsProgram.useAndBind {
-                onDrawBoundShaderProgram(this, textureId)
+                onDrawBoundShaderProgram(this)
                 setFloatUniform(I_TRANSITION_PROGRESS_NAME, globalTime)
 
                 mediaPlayer?.let { mp ->
@@ -247,7 +243,7 @@ class MojoRenderer(
         GLES32.glFinish()
     }
 
-    private fun onDrawBoundShaderProgram(glProgram: GlProgram, textureId: Int) {
+    private fun onDrawBoundShaderProgram(glProgram: GlProgram) {
         with(glProgram) {
             setBufferAttribute(
                 A_POSITION_NAME,
