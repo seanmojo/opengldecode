@@ -76,7 +76,7 @@ class MojoRenderer(
     private var mediaPlayer: MediaPlayer? = null
     private var mediaPlayer1: MediaPlayer? = null
 
-    var applyFragShader = false
+    var applyFragShader = true
 
     fun onDetachedFromWindow() {
         mediaPlayer?.let {
@@ -99,7 +99,7 @@ class MojoRenderer(
             .bufferedReader()
             .readText()
 
-        val effectsShader = context.resources.openRawResource(R.raw.rippedpapervertical)
+        val effectsShader = context.resources.openRawResource(R.raw.fade)
             .bufferedReader()
             .readText()
 
@@ -176,7 +176,7 @@ class MojoRenderer(
 
                     val percentage = (currentPosSeconds / total)
                     //globalTime = percentage
-                    globalTime += 0.1f
+                    globalTime += 0.075f
                 }
             }
         }
