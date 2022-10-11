@@ -7,7 +7,7 @@
 precision highp float;
 
 in vec2 v_tex_coord;
-in vec2 uv1;
+
 out vec4 gl_FragColor;
 
 uniform vec2 i_size;
