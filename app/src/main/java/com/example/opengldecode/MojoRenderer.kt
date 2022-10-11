@@ -99,7 +99,7 @@ class MojoRenderer(
             .bufferedReader()
             .readText()
 
-        val effectsShader = context.resources.openRawResource(R.raw.fade)
+        val effectsShader = context.resources.openRawResource(R.raw.rippedpapervertical)
             .bufferedReader()
             .readText()
 
@@ -168,14 +168,15 @@ class MojoRenderer(
 
         GlobalScope.launch {
             while (globalTime <= 1f) {
-                delay(250)
+                delay(100)
 
                 mediaPlayer?.let {
                     val currentPosSeconds = it.currentPosition.toFloat()
                     val total = it.duration.toFloat()
 
                     val percentage = (currentPosSeconds / total)
-                    globalTime = percentage
+                    //globalTime = percentage
+                    globalTime += 0.1f
                 }
             }
         }
@@ -218,12 +219,6 @@ class MojoRenderer(
         if (!applyFragShader) {
             resizeProgram.useAndBind {
                 onDrawBoundShaderProgram(this)
-                setFloatUniform(I_TRANSITION_PROGRESS_NAME, globalTime)
-
-                mediaPlayer?.let { mp ->
-                    val currentTime = mp.currentPosition.toFloat() / 1000f
-                    setFloatUniform(I_TIME_NAME, currentTime)
-                }
             }
         } else {
             effectsProgram.useAndBind {
