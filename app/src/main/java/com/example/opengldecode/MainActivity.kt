@@ -22,8 +22,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var content: FrameLayout
     lateinit var seekBar: SeekBar
     lateinit var captureButton: Button
-    lateinit var toggleShaderButton: Button
-    lateinit var switchVideoButton: Button
+    private lateinit var toggleShaderButton: Button
 
     private val pickMedia =
         registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(2)) { uris ->
@@ -40,7 +39,6 @@ class MainActivity : AppCompatActivity() {
         seekBar = findViewById(R.id.seekBar)
         captureButton = findViewById(R.id.captureButton)
         toggleShaderButton = findViewById(R.id.toggleShaderButton)
-        switchVideoButton = findViewById(R.id.switchVideoButton)
 
         pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.VideoOnly))
 
@@ -65,10 +63,6 @@ class MainActivity : AppCompatActivity() {
                     Log.i("MOJO", "Stored captured image to: ${file.absolutePath}")
                 }
             }
-        }
-
-        switchVideoButton.setOnClickListener {
-            mojoSurfaceView.switchVideo()
         }
     }
 

@@ -49,11 +49,4 @@ class MojoSurfaceView(
             it.applyFragShader = !it.applyFragShader
         }
     }
-
-    fun switchVideo() {
-        renderer?.let {
-            it.switchVideo()
-        }
-    }
-
 }

@@ -9,6 +9,9 @@ import android.opengl.GLSurfaceView
 import android.opengl.Matrix
 import android.util.Log
 import android.view.Surface
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import video.mojo.shader.GlProgram
 import video.mojo.shader.useAndBind
 import java.io.FileDescriptor
@@ -33,7 +36,14 @@ class MojoRenderer(
         private const val U_MVPMATRIX_NAME = "uMVPMatrix"
         private const val U_STMATRIX_NAME = "uSTMatrix"
         private const val U_TEXTURE_NAME = "u_texture"
+        private const val I_TEXTURE_1_NAME = "i_texture_1"
+        private const val I_TEXTURE_2_NAME = "i_texture_2"
+        private const val I_TEXTURE_SIZE_1_NAME = "i_texture_size_1"
+        private const val I_TEXTURE_SIZE_2_NAME = "i_texture_size_2"
+        private const val I_TRANSITION_PROGRESS_NAME = "i_transition_progress"
         private const val I_TIME_NAME = "i_time"
+        private const val I_SIZE_NAME = "i_size"
+
         private val triangleVerticesData = floatArrayOf(
             -1.0f, -1.0f, 0f, 1.0f,
             -1.0f, 0f, -1.0f, 1.0f,
@@ -46,12 +56,18 @@ class MojoRenderer(
         )
     }
 
+    //This is a fake value used to give a value between 0.0 and 1.0
+    //to the transition shader in place of a real value (I_TRANSITION_TIME)
+    private var globalTime = 0f
+    private var totalDurationSeconds = 0
+
     private val mMVPMatrix = FloatArray(16)
     private val mSTMatrix = FloatArray(16)
-
     private val projectionMatrix = FloatArray(16)
+
     private lateinit var resizeProgram: GlProgram
     private lateinit var effectsProgram: GlProgram
+
     private var textureId: Int = 0
     private var textureId1: Int = 1
 
@@ -61,37 +77,46 @@ class MojoRenderer(
     private var mediaPlayer: MediaPlayer? = null
     private var mediaPlayer1: MediaPlayer? = null
 
-    private var width = 0
-    private var height = 0
-
     var applyFragShader = false
-    var first = true
 
     fun onDetachedFromWindow() {
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
+        mediaPlayer?.let {
+            it.stop()
+            it.release()
+        }
+
+        mediaPlayer1?.let {
+            it.stop()
+            it.release()
+        }
     }
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         val vertexShader = context.resources.openRawResource(R.raw.boring_vertex_shader)
             .bufferedReader()
             .readText()
+
         val fragmentShader = context.resources.openRawResource(R.raw.boring_fragment_shader)
             .bufferedReader()
             .readText()
 
-        val effectsShader = context.resources.openRawResource(R.raw.glitch)
+        val effectsShader = context.resources.openRawResource(R.raw.fade)
             .bufferedReader()
             .readText()
 
         resizeProgram = GlProgram(vertexShader, fragmentShader)
         effectsProgram = GlProgram(vertexShader, effectsShader)
 
-
         val textures = IntArray(2)
         GLES32.glGenTextures(2, textures, 0)
         textureId = textures[0]
         textureId1 = textures[1]
+
+        resizeProgram.setSamplerTexIdUniform(U_TEXTURE_NAME, textureId, 0)
+
+        //Tell the transition shader what our textures are now that we've generated them
+        effectsProgram.setSamplerTexIdUniform(I_TEXTURE_1_NAME, textureId, 0)
+        effectsProgram.setSamplerTexIdUniform(I_TEXTURE_2_NAME, textureId1, 1)
 
         GLES32.glTexParameterf(
             GL_TEXTURE_EXTERNAL_OES, GLES32.GL_TEXTURE_MIN_FILTER,
@@ -102,13 +127,21 @@ class MojoRenderer(
             GLES32.GL_LINEAR.toFloat()
         )
 
-        createSurfaceTextures()
+        surfaceTexture = SurfaceTexture(textureId)
+        surfaceTexture.setOnFrameAvailableListener(onFrameAvailableListener)
+
+        surfaceTexture1 = SurfaceTexture(textureId1)
+        surfaceTexture1.setOnFrameAvailableListener(onFrameAvailableListener)
 
         val surface = Surface(surfaceTexture)
         val surface1 = Surface(surfaceTexture1)
 
         mediaPlayer = MediaPlayer()
         mediaPlayer1 = MediaPlayer()
+
+        totalDurationSeconds =
+            if ((mediaPlayer?.duration ?: 0) > (mediaPlayer1?.duration ?: 0)) mediaPlayer?.duration
+                ?: (0 / 1000) else mediaPlayer1?.duration ?: (0 / 1000)
 
         try {
             mediaPlayer?.let { mp ->
@@ -130,45 +163,50 @@ class MojoRenderer(
             Log.e(TAG, "Failed to config mp: $e")
         }
 
-        if (first) {
-            mediaPlayer?.start()
-        } else {
-            mediaPlayer1?.start()
+        mediaPlayer?.start()
+        mediaPlayer1?.start()
+
+        GlobalScope.launch {
+            while (globalTime <= 1f) {
+                delay(250)
+
+                mediaPlayer?.let {
+                    val currentPosSeconds = it.currentPosition.toFloat()
+                    val total = it.duration.toFloat()
+
+                    Log.i("MOJO", "currentPos: ${it.currentPosition.toFloat()}, total: ${it.duration.toFloat()}")
+                    val percentage = (currentPosSeconds / total)
+                    globalTime = percentage
+                }
+
+                //globalTime += 0.05f
+                Log.i("MOJO", "Global time: $globalTime")
+            }
         }
-    }
-
-    fun switchVideo() {
-        if (first) {
-            mediaPlayer?.pause()
-            mediaPlayer1?.start()
-        } else {
-            mediaPlayer1?.pause()
-            mediaPlayer?.start()
-        }
-
-        first = !first
-    }
-
-    private fun createSurfaceTextures() {
-        surfaceTexture = SurfaceTexture(textureId)
-        surfaceTexture.setOnFrameAvailableListener(onFrameAvailableListener)
-
-        surfaceTexture1 = SurfaceTexture(textureId1)
-        surfaceTexture1.setOnFrameAvailableListener(onFrameAvailableListener)
     }
 
     override fun onSurfaceChanged(gl: GL10, width: Int, height: Int) {
         GLES32.glViewport(0, 0, width, height)
         Matrix.frustumM(projectionMatrix, 0, -1f, 1f, -1f, 1f, 1f, 10f)
         Log.i(TAG, "SurfaceChanged w: $width, h:$height")
+
+        effectsProgram.setFloatsUniform(
+            I_TEXTURE_SIZE_1_NAME,
+            floatArrayOf(width.toFloat(), height.toFloat())
+        )
+        effectsProgram.setFloatsUniform(
+            I_TEXTURE_SIZE_2_NAME,
+            floatArrayOf(width.toFloat(), height.toFloat())
+        )
+        effectsProgram.setFloatsUniform(
+            I_SIZE_NAME,
+            floatArrayOf(width.toFloat(), height.toFloat())
+        )
     }
 
     override fun onDrawFrame(gl: GL10?) {
-        if (first) {
-            onDraw(surfaceTexture, textureId)
-        } else {
-            onDraw(surfaceTexture1, textureId1)
-        }
+        onDraw(surfaceTexture, textureId)
+        onDraw(surfaceTexture1, textureId1)
     }
 
     private fun onDraw(surfaceTexture: SurfaceTexture, textureId: Int) {
@@ -184,10 +222,17 @@ class MojoRenderer(
         if (!applyFragShader) {
             resizeProgram.useAndBind {
                 onDrawBoundShaderProgram(this, textureId)
+                setFloatUniform(I_TRANSITION_PROGRESS_NAME, globalTime)
+
+                mediaPlayer?.let { mp ->
+                    val currentTime = mp.currentPosition.toFloat() / 1000f
+                    setFloatUniform(I_TIME_NAME, currentTime)
+                }
             }
         } else {
             effectsProgram.useAndBind {
                 onDrawBoundShaderProgram(this, textureId)
+                setFloatUniform(I_TRANSITION_PROGRESS_NAME, globalTime)
 
                 mediaPlayer?.let { mp ->
                     val currentTime = mp.currentPosition.toFloat() / 1000f
@@ -204,8 +249,6 @@ class MojoRenderer(
 
     private fun onDrawBoundShaderProgram(glProgram: GlProgram, textureId: Int) {
         with(glProgram) {
-            setSamplerTexIdUniform(U_TEXTURE_NAME, textureId, 0)
-
             setBufferAttribute(
                 A_POSITION_NAME,
                 triangleVerticesData,

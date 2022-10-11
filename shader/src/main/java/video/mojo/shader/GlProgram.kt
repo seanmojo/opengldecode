@@ -103,22 +103,20 @@ class GlProgram(
      * texture sampler in the program.
      */
     fun setSamplerTexIdUniform(name: String, textureId: Int, textureUnitIndex: Int) {
-        Log.i("MOJO","setSamplerTexIdUniform: $name")
-        requireNotNull(uniformByName[name]).setSamplerTextureId(textureId, textureUnitIndex)
+//        Log.i("MOJO","setSamplerTexIdUniform: $name, found?: ${uniformByName.containsKey(name)}")
+        uniformByName[name]?.setSamplerTextureId(textureId, textureUnitIndex)
     }
 
     /** Sets a float type uniform.  */
     fun setFloatUniform(name: String, value: Float) {
-        Log.i("MOJO","setFloatUniform: $name")
-        requireNotNull(uniformByName[name]).setFloat(value)
+//        Log.i("MOJO","setFloatUniform: $name, found?: ${uniformByName.containsKey(name)}")
+        uniformByName[name]?.setFloat(value)
     }
 
     /** Sets a float array type uniform.  */
     fun setFloatsUniform(name: String, value: FloatArray) {
-        Log.i("MOJO","setFloatsUniform: $name")
-        requireNotNull(uniformByName[name]) {
-            name
-        }.setFloats(value)
+//        Log.i("MOJO","setFloatsUniform: $name, found?: ${uniformByName.containsKey(name)}")
+        uniformByName[name]?.setFloats(value)
     }
 
     /** Binds all attributes and uniforms in the program.  */
