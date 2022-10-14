@@ -1,6 +1,5 @@
 package com.example.opengldecode
 
-import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -11,14 +10,14 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.appcompat.app.AppCompatActivity
-import java.io.File
-import java.io.FileOutputStream
-import java.util.*
+import com.example.opengldecode.texture.GLTextureView
+import kotlin.collections.ArrayList
 
 
 class MainActivity : AppCompatActivity() {
 
-    lateinit var mojoSurfaceView: MojoSurfaceView
+//    lateinit var mojoSurfaceView: MojoSurfaceView
+    lateinit var mojoTextureView: GLTextureView
     lateinit var content: FrameLayout
     lateinit var seekBar: SeekBar
     lateinit var captureButton: Button
@@ -43,26 +42,26 @@ class MainActivity : AppCompatActivity() {
         pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.VideoOnly))
 
         toggleShaderButton.setOnClickListener {
-            mojoSurfaceView.toggleApplyShader()
+            //mojoSurfaceView.toggleApplyShader()
         }
 
         captureButton.setOnClickListener {
             Log.i("MOJO", "Tapped capture")
 
-            mojoSurfaceView.usePixelCopy { bitmap ->
-                bitmap?.let { bmp ->
-                    val dir = filesDir
-                    if (!dir.exists()) dir.mkdirs()
-                    val file = File(dir, "capture" + UUID.randomUUID() + ".png")
-                    val fOut = FileOutputStream(file)
-
-                    bmp.compress(Bitmap.CompressFormat.PNG, 85, fOut)
-                    fOut.flush()
-                    fOut.close()
-
-                    Log.i("MOJO", "Stored captured image to: ${file.absolutePath}")
-                }
-            }
+//            mojoSurfaceView.usePixelCopy { bitmap ->
+//                bitmap?.let { bmp ->
+//                    val dir = filesDir
+//                    if (!dir.exists()) dir.mkdirs()
+//                    val file = File(dir, "capture" + UUID.randomUUID() + ".png")
+//                    val fOut = FileOutputStream(file)
+//
+//                    bmp.compress(Bitmap.CompressFormat.PNG, 85, fOut)
+//                    fOut.flush()
+//                    fOut.close()
+//
+//                    Log.i("MOJO", "Stored captured image to: ${file.absolutePath}")
+//                }
+//            }
         }
     }
 
@@ -86,9 +85,11 @@ class MainActivity : AppCompatActivity() {
 //            }
 //        })
 
-        mojoSurfaceView = MojoSurfaceView(this, uris, onMediaReady = { mp ->
-            seekBar.max = mp.duration
-            seekBar.progress = mp.currentPosition
+        mojoTextureView = GLTextureView(this, ArrayList(uris))
+
+//        mojoSurfaceView = MojoSurfaceView(this, uris, onMediaReady = { mp ->
+//            seekBar.max = mp.duration
+//            seekBar.progress = mp.currentPosition
 
 //            this.mediaPlayer = mp
 //            this.mediaPlayer.setOnSeekCompleteListener { _ ->
@@ -102,10 +103,11 @@ class MainActivity : AppCompatActivity() {
 //                    delay(1000)
 //                }
 //            }
-        })
+//        })
 
 
 
-        content.addView(mojoSurfaceView)
+//        content.addView(mojoSurfaceView)
+        content.addView(mojoTextureView)
     }
 }
